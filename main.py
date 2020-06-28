@@ -140,28 +140,52 @@ class SlitherLink:
                             now.merge(hrzn)
                             tmp = candDict(now)
                             self.ans[tmp].append(column)
-                            v.to.append(self.ans[tmp])
+                            v.to.append(tmp)
                     else:
                         now.merge(hrzn)
                         tmp = candDict(now)
                         self.cand[-1][tmp].add()
-                        v.to.append(self.cand[-1][tmp])
+                        v.to.append(tmp)
                     now.reset_hrzn(k)
     def recognize_ans(self):
         if len(self.ans) > 0:
             print("solved!")
+            return True
         else:
             print("no solution")
+            return False
     def recover(self):
-        pass
+        prv = list(self.ans.keys())[0]
+        prv.is_ans = True
+        nowrow = self.ans[prv][0]
+        self.make_hrzn(prv, nowrow+1)
+        while nowrow >= 0:
+            self.make_vrtc(prv, nowrow)
+            prv = self.get_next(prv, nowrow)
+            self.make_hrzn(prv, nowrow)
+            nowrow-=1
+    def make_hrzn(self, prv, nowrow):
+        for i in range(self.w):
+            if prv.hrzn[i]:
+                self.ans_hrzn[nowrow][i] = True
+    def get_next(self, prv, nowrow):
+        for k,v in self.cand[nowrow].items():
+            for j in v.to:
+                if j == prv:
+                    return k
+    def make_vrtc(self, prv, nowrow):
+        for i in range(self.w + 1):
+            if prv.vrtc[i]:
+                self.ans_vrtc[nowrow][i] = True
     def __str__(self):
         ansList = []
         for i in range(self.h*2 + 1):
             now  = ""
             if i%2 == 0:
+                now = " "
                 for j in range(self.w):
                     if self.ans_hrzn[i//2][j]:
-                        now = now + "-"
+                        now = now + "_"
                     else:
                         now = now + " "
                     if j < self.w-1:
@@ -185,11 +209,11 @@ class SlitherLink:
         return ansstr
 
 def main():
-    with open("sample2.txt") as f:
+    with open("sample1.txt") as f:
         lines = f.read()
     sl = SlitherLink(lines)
     sl.solve()
-    print(sl.ans)
+    print(sl)
     # for i,j in sl.ans.items():
     #     print(i, j)
     # for i in range(len(sl.cand)):

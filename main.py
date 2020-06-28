@@ -1,34 +1,76 @@
 from collections import defaultdict
 
+class UnionFind:
+    def __init__(self, _size):
+        self.size = _size
+        self.par = [i for i in range(self.size)]
+    def root(self,x):
+        if self.par[x] == x:
+            return x
+        else:
+            self.par[x] = self.root(self.par[x])
+            return self.par[x]
+    def unite(self, x, y):
+        x = self.root(x)
+        y = self.root(y)
+        self.par[x] = y
+    def one_roop(self):
+        cnt = set()
+        for i in range(self.size):
+            if self.par[i] !=  i:
+                cnt.add(self.par[i])
+        return len(cnt) == 1
+
 class Candidate:
     def __init__(self, _size):
         self.size = _size
         self.vrtc = [False for i in range(self.size+1)]
         self.hrzn = [False for i in range(self.size)]
         self.connect = [i for i in range(self.size+1)]
-    def bitmask(self, n, ignore_loop):
+    def bitmask(self, n):
         for i in range(self.size):
             if (n>>i)&1:
-                if self.add_hrzn(i) and (not ignore_loop):
-                    return False
-        for i in range(1, self.size):
-            if self.hrzn[i] and self.hrzn[i-1] and self.vrtc[i]:
-                return False
-        return True
+                self.add_hrzn(i)
     def add_hrzn(self, x):
-        ret = self.connect[x] == x+1 and self.connect[x+1] == x
         self.hrzn[x] = True
         a, b = self.connect[x], self.connect[x+1]
+        if a == x+1 and b == x:
+            self.connect[x], self.connect[x+1] = b,a
+            return
         self.connect[x] = x
         self.connect[x+1] = x+1
-        if not ret:
-            self.connect[a] = b
-            self.connect[b] = a
-        return ret
+        self.connect[a] = b
+        self.connect[b] = a
+    def check_trns(self, prv):
+        for i in range(1, self.size):
+            if self.vrtc[i] and prv.hrzn[i-1] and prv.hrzn[i]:
+                return False
+        return True
+    def check_num(self, prv, k, nums):
+        for i in range(self.size):
+            cnt = [prv.hrzn[i], k.hrzn[i], self.vrtc[i], self.vrtc[i+1]].count(True)
+            if cnt != nums[i] and nums[i] != -1:
+                return False
+        return True
+    def check_roop(self, prv):
+        for i in range(self.size):
+            if (self.connect[i]==i)^(prv.connect[i]==i):
+                return False
+        return True
+    def check_completed(self, prv):
+        uf = UnionFind(self.size+1)
+        for i in range(self.size+1):
+            uf.unite(i, self.connect[i])
+            uf.unite(i, prv.connect[i])
+        return uf.one_roop()
+    def merge(self, prv):
+        for i in range(self.size):
+            if prv.hrzn[i]:
+                self.add_hrzn(i)
     def reset_hrzn(self, prv):
         self.connect = list(prv.connect)
         for i in range(self.size):
-            self.vrtc[i] = False
+            self.hrzn[i] = False
     def add_vert(self):
         for i in range(self.size+1):
             if self.connect[i] != i:
@@ -64,7 +106,12 @@ class SlitherLink:
         self.ans_vrtc = [[False for j in range(self.w + 1)] for i in range(self.h)]
         self.ans_hrzn = [[False for j in range(self.w)] for i in range(self.h + 1)]
         self.cand = []
-        self.ans = []
+        self.ans = defaultdict(lambda : [])
+        self.nonum_row = 0
+        for i in range(self.h-1, -1, -1):
+            if self.data[i].count(-1) != self.w:
+                self.nonum_row = i
+                break
     def solve(self):
         self.search()
         if not self.recognize_ans():
@@ -78,7 +125,7 @@ class SlitherLink:
         self.cand.append(defaultdict(CandData))
         for i in range(2**self.w):
             now = Candidate(self.w)
-            now.bitmask(i, False)
+            now.bitmask(i)
             self.cand[-1][candDict(now)].add()
     def search_sub(self, column):
         self.cand.append(defaultdict(CandData))
@@ -86,21 +133,25 @@ class SlitherLink:
             now = Candidate(self.w)
             now.connect = list(k.connect)
             now.add_vert()
-            for j in range(2**self.w):
-                if now.bitmask(j, column == self.h-1):
-                    tmp = candDict(now)
-                    self.cand[-1][tmp].add()
-                    v.to.append(self.cand[-1][tmp])
-                now.reset_hrzn(k)
+            for hrzn in self.cand[0]:
+                if now.check_trns(hrzn) and now.check_num(hrzn, k, self.data[column]):
+                    if now.check_roop(hrzn):
+                        if now.check_completed(hrzn) and self.nonum_row <= column:
+                            now.merge(hrzn)
+                            tmp = candDict(now)
+                            self.ans[tmp].append(column)
+                            v.to.append(self.ans[tmp])
+                    else:
+                        now.merge(hrzn)
+                        tmp = candDict(now)
+                        self.cand[-1][tmp].add()
+                        v.to.append(self.cand[-1][tmp])
+                    now.reset_hrzn(k)
     def recognize_ans(self):
-        tmp = tuple([i for i in range(self.w+1)])
-        for i in self.cand[-1].keys():
-            if i.connect == tmp:
-                print("solved!")
-                print(self.cand[-1][i].cnt)
-                # return True
-        print("no solution")
-        return False
+        if len(self.ans) > 0:
+            print("solved!")
+        else:
+            print("no solution")
     def recover(self):
         pass
     def __str__(self):
@@ -138,9 +189,12 @@ def main():
         lines = f.read()
     sl = SlitherLink(lines)
     sl.solve()
-    for i in range(len(sl.cand)):
-        for j in sl.cand[i]:
-            print(j, i)
+    print(sl.ans)
+    # for i,j in sl.ans.items():
+    #     print(i, j)
+    # for i in range(len(sl.cand)):
+    #     for j in sl.cand[i]:
+    #         print(j, i)
 
 if __name__ == "__main__":
     main()

@@ -17,7 +17,7 @@ class UnionFind:
     def one_roop(self):
         cnt = set()
         for i in range(self.size):
-            if self.par[i] !=  i:
+            if self.root(i) !=  i:
                 cnt.add(self.par[i])
         return len(cnt) == 1
 
@@ -177,6 +177,30 @@ class SlitherLink:
         for i in range(self.w + 1):
             if prv.vrtc[i]:
                 self.ans_vrtc[nowrow][i] = True
+    def vailfy(self):
+        if self.one_roop() and self.satisfy_num():
+            print("Accepted!")
+        else:
+            print("Wrong Answer")
+    def one_roop(self):
+        uf = UnionFind((self.w+1)*(self.h+1))
+        for i in range(self.h+1):
+            for j in range(self.w):
+                if self.ans_hrzn[i][j]:
+                    uf.unite((self.w+1)*i+j, (self.w+1)*i+j+1)
+        for i in range(self.h):
+            for j in range(self.w+1):
+                if self.ans_vrtc[i][j]:
+                    uf.unite((self.w+1)*i+j, (self.w+1)*(i+1)+j)
+        return uf.one_roop()
+    def satisfy_num(self):
+        for i in range(self.h):
+            for j in range(self.w):
+                if self.data[i][j] >= 0:
+                    cnt = [self.ans_hrzn[i][j], self.ans_hrzn[i+1][j], self.ans_vrtc[i][j], self.ans_vrtc[i][j+1]].count(True)
+                    if cnt != self.data[i][j]:
+                        return False
+        return True
     def __str__(self):
         ansList = []
         for i in range(self.h*2 + 1):
@@ -214,6 +238,7 @@ def main():
     sl = SlitherLink(lines)
     sl.solve()
     print(sl)
+    sl.vailfy()
     # for i,j in sl.ans.items():
     #     print(i, j)
     # for i in range(len(sl.cand)):

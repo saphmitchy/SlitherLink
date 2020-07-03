@@ -14,12 +14,12 @@ class UnionFind:
         x = self.root(x)
         y = self.root(y)
         self.par[x] = y
-    def one_roop(self):
+    def count_roop(self):
         cnt = set()
         for i in range(self.size):
             if self.root(i) !=  i:
                 cnt.add(self.par[i])
-        return len(cnt) == 1
+        return len(cnt)
 
 class Candidate:
     def __init__(self, _size):
@@ -52,17 +52,24 @@ class Candidate:
             if cnt != nums[i] and nums[i] != -1:
                 return False
         return True
-    def check_roop(self, prv):
-        for i in range(self.size):
+    def check_closed(self, prv):
+        return self.count_pair(prv) == 0
+    def count_pair(self, prv):
+        cnt = 0
+        for i in range(self.size+1):
             if (self.connect[i]==i)^(prv.connect[i]==i):
-                return False
-        return True
-    def check_completed(self, prv):
+                cnt += 1
+        return cnt
+    def count_roop(self, prv):
         uf = UnionFind(self.size+1)
         for i in range(self.size+1):
             uf.unite(i, self.connect[i])
             uf.unite(i, prv.connect[i])
-        return uf.one_roop()
+        return uf.count_roop()
+    def check_completed(self, prv):
+        return self.count_roop(prv) == 1
+    def check_roop(self, prv):
+        return self.count_pair(prv)//2 == self.count_roop(prv)
     def merge(self, prv):
         for i in range(self.size):
             if prv.hrzn[i]:
@@ -95,8 +102,8 @@ class CandData:
     def __init__(self):
         self.cnt = 0
         self.to = []
-    def add(self):
-        self.cnt += 1
+    def add(self,prv):
+        self.cnt += prv.cnt
 
 class SlitherLink:
     def __init__(self, s):
@@ -106,7 +113,7 @@ class SlitherLink:
         self.ans_vrtc = [[False for j in range(self.w + 1)] for i in range(self.h)]
         self.ans_hrzn = [[False for j in range(self.w)] for i in range(self.h + 1)]
         self.cand = []
-        self.ans = defaultdict(lambda : [])
+        self.ans = defaultdict(lambda : CandData())
         self.nonum_row = 0
         for i in range(self.h-1, -1, -1):
             if self.data[i].count(-1) != self.w:
@@ -126,7 +133,7 @@ class SlitherLink:
         for i in range(2**self.w):
             now = Candidate(self.w)
             now.bitmask(i)
-            self.cand[-1][candDict(now)].add()
+            self.cand[-1][candDict(now)].cnt = 1
     def search_sub(self, column):
         self.cand.append(defaultdict(CandData))
         for k,v in self.cand[column].items():
@@ -135,29 +142,35 @@ class SlitherLink:
             now.add_vert()
             for hrzn in self.cand[0]:
                 if now.check_trns(hrzn) and now.check_num(hrzn, k, self.data[column]):
-                    if now.check_roop(hrzn):
+                    if now.check_closed(hrzn):
                         if now.check_completed(hrzn) and self.nonum_row <= column:
                             now.merge(hrzn)
                             tmp = candDict(now)
-                            self.ans[tmp].append(column)
+                            self.ans[tmp].to.append(column)
+                            self.ans[tmp].add(v)
                             v.to.append(tmp)
                     else:
-                        now.merge(hrzn)
-                        tmp = candDict(now)
-                        self.cand[-1][tmp].add()
-                        v.to.append(tmp)
+                        if now.check_roop(hrzn):
+                            now.merge(hrzn)
+                            tmp = candDict(now)
+                            self.cand[-1][tmp].add(v)
+                            v.to.append(tmp)
                     now.reset_hrzn(k)
     def recognize_ans(self):
         if len(self.ans) > 0:
-            print("solved!")
+            ans_cnt = 0
+            for i in self.ans.values():
+                ans_cnt += i.cnt
+            print(str(ans_cnt)+" solutions!")
             return True
         else:
             print("no solution")
             return False
     def recover(self):
         prv = list(self.ans.keys())[0]
+        prv.is_ans = False
         prv.is_ans = True
-        nowrow = self.ans[prv][0]
+        nowrow = self.ans[prv].to[0]
         self.make_hrzn(prv, nowrow+1)
         while nowrow >= 0:
             self.make_vrtc(prv, nowrow)
@@ -192,7 +205,7 @@ class SlitherLink:
             for j in range(self.w+1):
                 if self.ans_vrtc[i][j]:
                     uf.unite((self.w+1)*i+j, (self.w+1)*(i+1)+j)
-        return uf.one_roop()
+        return uf.count_roop() == 1
     def satisfy_num(self):
         for i in range(self.h):
             for j in range(self.w):
@@ -239,11 +252,6 @@ def main():
     sl.solve()
     print(sl)
     sl.vailfy()
-    # for i,j in sl.ans.items():
-    #     print(i, j)
-    # for i in range(len(sl.cand)):
-    #     for j in sl.cand[i]:
-    #         print(j, i)
 
 if __name__ == "__main__":
     main()

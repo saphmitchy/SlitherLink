@@ -85,7 +85,7 @@ class Candidate:
     def __str__(self):
         return str(self.connect)+str(self.vrtc)+str(self.hrzn)+str(self.__hash__())
 
-class candDict:
+class CandDict:
     def __init__(self, cand):
         self.size = cand.size
         self.vrtc = tuple(cand.vrtc)
@@ -116,7 +116,7 @@ class SlitherLink:
         self.ans = defaultdict(lambda : CandData())
         self.nonum_row = 0
         for i in range(self.h-1, -1, -1):
-            if self.data[i].count(-1) != self.w:
+            if self.data[i].count(-1) + self.data[i].count(0) != self.w:
                 self.nonum_row = i
                 break
     def solve(self):
@@ -133,7 +133,7 @@ class SlitherLink:
         for i in range(2**self.w):
             now = Candidate(self.w)
             now.bitmask(i)
-            self.cand[-1][candDict(now)].cnt = 1
+            self.cand[-1][CandDict(now)].cnt = 1
     def search_sub(self, column):
         self.cand.append(defaultdict(CandData))
         for k,v in self.cand[column].items():
@@ -142,20 +142,33 @@ class SlitherLink:
             now.add_vert()
             for hrzn in self.cand[0]:
                 if now.check_trns(hrzn) and now.check_num(hrzn, k, self.data[column]):
-                    if now.check_closed(hrzn):
-                        if now.check_completed(hrzn) and self.nonum_row <= column:
+                    if now.check_closed(hrzn) and now.count_roop(hrzn) != 0:
+                        if now.check_completed(hrzn) and self.can_end(hrzn, column):
                             now.merge(hrzn)
-                            tmp = candDict(now)
+                            tmp = CandDict(now)
                             self.ans[tmp].to.append(column)
                             self.ans[tmp].add(v)
                             v.to.append(tmp)
                     else:
                         if now.check_roop(hrzn):
                             now.merge(hrzn)
-                            tmp = candDict(now)
+                            tmp = CandDict(now)
                             self.cand[-1][tmp].add(v)
                             v.to.append(tmp)
                     now.reset_hrzn(k)
+    def can_end(self, prv, column):
+        if self.nonum_row > column:
+            return False
+        elif column == self.h-1:
+            return True
+        for i in range(self.w):
+            if prv.hrzn[i]:
+                if self.data[column+1][i] != 1 and self.data[column+1][i] != -1:
+                    return False
+            else:
+                if self.data[column+1][i] > 0:
+                    return False
+        return True
     def recognize_ans(self):
         if len(self.ans) > 0:
             ans_cnt = 0
@@ -190,7 +203,7 @@ class SlitherLink:
         for i in range(self.w + 1):
             if prv.vrtc[i]:
                 self.ans_vrtc[nowrow][i] = True
-    def vailfy(self):
+    def valify(self):
         if self.one_roop() and self.satisfy_num():
             print("Accepted!")
         else:
@@ -246,12 +259,12 @@ class SlitherLink:
         return ansstr
 
 def main():
-    with open("sample1.txt") as f:
+    with open("./testcases/sample1.txt") as f:
         lines = f.read()
     sl = SlitherLink(lines)
     sl.solve()
     print(sl)
-    sl.vailfy()
+    sl.valify()
 
 if __name__ == "__main__":
     main()
